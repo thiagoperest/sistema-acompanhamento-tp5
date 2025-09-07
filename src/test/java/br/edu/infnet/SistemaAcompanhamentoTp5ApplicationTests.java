@@ -1,4 +1,4 @@
-package br.edu.infnet.sistemaacompanhamentotp5;
+package br.edu.infnet;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
