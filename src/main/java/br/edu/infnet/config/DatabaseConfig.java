@@ -8,6 +8,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 
 /**
  * Configuração do banco de dados e dados iniciais
@@ -21,6 +22,7 @@ public class DatabaseConfig {
      * Executa apenas no profile 'dev' ou quando não há profile específico
      */
     @Bean
+    @Order(1)
     @Profile({"dev", "default"})
     public CommandLineRunner loadInitialData(
             ClienteRepository clienteRepository,
