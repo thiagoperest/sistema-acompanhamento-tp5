@@ -1,15 +1,20 @@
 package br.edu.infnet.cli;
 
 import br.edu.infnet.model.dto.ClienteDto;
+import br.edu.infnet.model.dto.HistoricoStatusDto;
 import br.edu.infnet.model.dto.LoginDto;
+import br.edu.infnet.model.dto.PedidoDto;
 import br.edu.infnet.model.entity.AtendenteSuporte;
+import br.edu.infnet.model.enums.StatusPedido;
 import br.edu.infnet.service.AuthService;
 import br.edu.infnet.service.ClienteService;
+import br.edu.infnet.service.PedidoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.InputMismatchException;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +32,9 @@ public class SistemaCli implements CommandLineRunner {
 
     @Autowired
     private ClienteService clienteService;
+
+    @Autowired
+    private PedidoService pedidoService;
 
     private Scanner scanner;
     private ClienteDto clienteLogado;
@@ -83,7 +91,8 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println("3. Registrar Novo Cliente");
         System.out.println("4. Verificar Email");
         System.out.println("5. Listar Clientes (Demo)");
-        System.out.println("6. Documentação da API (Swagger)");
+        System.out.println("6. Consultar Pedido por Número (Público)");
+        System.out.println("7. Documentação da API (Swagger)");
         System.out.println("0. Sair");
         System.out.println();
         System.out.print("Escolha uma opção: ");
@@ -109,6 +118,9 @@ public class SistemaCli implements CommandLineRunner {
                     listarClientes();
                     break;
                 case 6:
+                    consultarPedidoPublico();
+                    break;
+                case 7:
                     exibirInformacoesSwagger();
                     break;
                 case 0:
@@ -134,9 +146,12 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println();
         System.out.println("1. Ver Meus Dados");
         System.out.println("2. Atualizar Meus Dados");
-        System.out.println("3. Meus Pedidos (Pendente)");
-        System.out.println("4. Notificações (Pendente)");
-        System.out.println("5. Suporte (Pendente)");
+        System.out.println("3. Meus Pedidos");
+        System.out.println("4. Criar Novo Pedido");
+        System.out.println("5. Buscar Pedido");
+        System.out.println("6. Acompanhar Pedido");
+        System.out.println("7. Notificações (Pendente)");
+        System.out.println("8. Suporte (Pendente)");
         System.out.println("0. Logout");
         System.out.println();
         System.out.print("Escolha uma opção: ");
@@ -153,8 +168,19 @@ public class SistemaCli implements CommandLineRunner {
                     atualizarDadosCliente();
                     break;
                 case 3:
+                    listarMeusPedidos();
+                    break;
                 case 4:
+                    criarNovoPedido();
+                    break;
                 case 5:
+                    buscarMeuPedido();
+                    break;
+                case 6:
+                    acompanharPedido();
+                    break;
+                case 7:
+                case 8:
                     System.out.println("Funcionalidade será implementada nas próximas sprints!");
                     pausa();
                     break;
@@ -183,8 +209,11 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println();
         System.out.println("1. Listar Clientes");
         System.out.println("2. Buscar Cliente");
-        System.out.println("3. Pedidos (Pendente)");
-        System.out.println("4. Suporte (Pendente)");
+        System.out.println("3. Gerenciar Pedidos");
+        System.out.println("4. Buscar Pedidos");
+        System.out.println("5. Atualizar Status de Pedido");
+        System.out.println("6. Estatísticas de Pedidos");
+        System.out.println("7. Suporte (Pendente Sprint 4)");
         System.out.println("0. Logout");
         System.out.println();
         System.out.print("Escolha uma opção: ");
@@ -201,7 +230,18 @@ public class SistemaCli implements CommandLineRunner {
                     buscarCliente();
                     break;
                 case 3:
+                    gerenciarPedidos();
+                    break;
                 case 4:
+                    buscarPedidos();
+                    break;
+                case 5:
+                    atualizarStatusPedido();
+                    break;
+                case 6:
+                    exibirEstatisticasPedidos();
+                    break;
+                case 7:
                     System.out.println("Funcionalidade será implementada nas próximas sprints!");
                     pausa();
                     break;
@@ -275,6 +315,574 @@ public class SistemaCli implements CommandLineRunner {
             System.out.println();
             System.out.println("Erro no login: " + e.getMessage());
             pausa();
+        }
+    }
+
+    private void listarMeusPedidos() {
+        limparTela();
+        System.out.println("=== MEUS PEDIDOS ===");
+        System.out.println();
+
+        try {
+            List<PedidoDto> pedidos = pedidoService.listarPedidosPorCliente(clienteLogado.getId());
+
+            if (pedidos.isEmpty()) {
+                System.out.println("Você ainda não possui pedidos.");
+            } else {
+                System.out.printf("%-5s %-15s %-15s %-15s %-20s%n",
+                        "ID", "Número", "Data Compra", "Valor", "Status");
+                System.out.println("─".repeat(80));
+
+                for (PedidoDto pedido : pedidos) {
+                    System.out.printf("%-5d %-15s %-15s R$ %-10.2f %-20s%n",
+                            pedido.getId(),
+                            pedido.getNumeroPedido(),
+                            pedido.getDataCompra().substring(0, 10),
+                            pedido.getValor(),
+                            pedido.getStatus().getDescricao()
+                    );
+                }
+
+                System.out.println("─".repeat(80));
+                System.out.println("Total de pedidos: " + pedidos.size());
+            }
+
+        } catch (Exception e) {
+            System.out.println("Erro ao listar pedidos: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void criarNovoPedido() {
+        limparTela();
+        System.out.println("=== CRIAR NOVO PEDIDO ===");
+        System.out.println();
+
+        try {
+            System.out.print("Valor do pedido (R$): ");
+            BigDecimal valor = scanner.nextBigDecimal();
+            scanner.nextLine();
+
+            System.out.print("Observações (opcional): ");
+            String observacoes = scanner.nextLine().trim();
+
+            System.out.print("Previsão de entrega (dd/mm/aaaa - opcional): ");
+            String previsaoEntrega = scanner.nextLine().trim();
+
+            PedidoDto novoPedido = new PedidoDto();
+            novoPedido.setClienteId(clienteLogado.getId());
+            novoPedido.setValor(valor);
+
+            if (!observacoes.isEmpty()) {
+                novoPedido.setObservacoes(observacoes);
+            }
+
+            if (!previsaoEntrega.isEmpty() && previsaoEntrega.matches("\\d{2}/\\d{2}/\\d{4}")) {
+                novoPedido.setPrevisaoEntrega(previsaoEntrega);
+            }
+
+            PedidoDto pedidoCriado = pedidoService.criarPedido(novoPedido);
+
+            System.out.println();
+            System.out.println("Pedido criado com sucesso!");
+            System.out.println("Número do pedido: " + pedidoCriado.getNumeroPedido());
+            System.out.println("ID: " + pedidoCriado.getId());
+            System.out.println("Valor: R$ " + pedidoCriado.getValor());
+            System.out.println("Status: " + pedidoCriado.getStatus().getDescricao());
+
+        } catch (InputMismatchException e) {
+            System.out.println("Valor inválido! Digite um número decimal.");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao criar pedido: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void buscarMeuPedido() {
+        limparTela();
+        System.out.println("=== BUSCAR MEU PEDIDO ===");
+        System.out.println();
+        System.out.println("1. Buscar por ID");
+        System.out.println("2. Buscar por Número do Pedido");
+        System.out.println("0. Voltar");
+        System.out.println();
+        System.out.print("Escolha uma opção: ");
+
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (opcao) {
+                case 1:
+                    buscarMeuPedidoPorId();
+                    break;
+                case 2:
+                    buscarMeuPedidoPorNumero();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+            pausa();
+        }
+    }
+
+    private void buscarMeuPedidoPorId() {
+        System.out.print("Digite o ID do pedido: ");
+        try {
+            Long id = scanner.nextLong();
+            scanner.nextLine();
+
+            Optional<PedidoDto> pedidoOpt = pedidoService.buscarPorId(id);
+
+            System.out.println();
+            if (pedidoOpt.isPresent()) {
+                PedidoDto pedido = pedidoOpt.get();
+
+                // Verificar se o pedido pertence ao cliente logado
+                if (!pedido.getClienteId().equals(clienteLogado.getId())) {
+                    System.out.println("Pedido não encontrado ou não pertence a você.");
+                } else {
+                    exibirDetalhesPedido(pedido);
+                }
+            } else {
+                System.out.println("Pedido não encontrado com ID: " + id);
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("ID inválido! Digite apenas números.");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar pedido: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void buscarMeuPedidoPorNumero() {
+        System.out.print("Digite o número do pedido: ");
+        String numeroPedido = scanner.nextLine().trim();
+
+        try {
+            Optional<PedidoDto> pedidoOpt = pedidoService.buscarPorNumeroPedido(numeroPedido);
+
+            System.out.println();
+            if (pedidoOpt.isPresent()) {
+                PedidoDto pedido = pedidoOpt.get();
+
+                // Verificar se o pedido pertence ao cliente logado
+                if (!pedido.getClienteId().equals(clienteLogado.getId())) {
+                    System.out.println("Pedido não encontrado ou não pertence a você.");
+                } else {
+                    exibirDetalhesPedido(pedido);
+                }
+            } else {
+                System.out.println("Pedido não encontrado com número: " + numeroPedido);
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar pedido: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void acompanharPedido() {
+        limparTela();
+        System.out.println("=== ACOMPANHAR PEDIDO ===");
+        System.out.println();
+
+        System.out.print("Digite o número do pedido: ");
+        String numeroPedido = scanner.nextLine().trim();
+
+        try {
+            Optional<PedidoDto> pedidoOpt = pedidoService.buscarPorNumeroPedido(numeroPedido);
+
+            if (pedidoOpt.isPresent()) {
+                PedidoDto pedido = pedidoOpt.get();
+
+                // Verificar se o pedido pertence ao cliente logado
+                if (!pedido.getClienteId().equals(clienteLogado.getId())) {
+                    System.out.println("Pedido não encontrado ou não pertence a você.");
+                } else {
+                    exibirDetalhesPedido(pedido);
+                    System.out.println();
+                    exibirHistoricoPedido(pedido.getId());
+                }
+            } else {
+                System.out.println("Pedido não encontrado com número: " + numeroPedido);
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao acompanhar pedido: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void consultarPedidoPublico() {
+        limparTela();
+        System.out.println("=== CONSULTA PÚBLICA DE PEDIDO ===");
+        System.out.println();
+
+        System.out.print("Digite o número do pedido: ");
+        String numeroPedido = scanner.nextLine().trim();
+
+        try {
+            Optional<PedidoDto> pedidoOpt = pedidoService.buscarPorNumeroPedido(numeroPedido);
+
+            System.out.println();
+            if (pedidoOpt.isPresent()) {
+                PedidoDto pedido = pedidoOpt.get();
+
+                System.out.println("=== INFORMAÇÕES DO PEDIDO ===");
+                System.out.println();
+                System.out.printf("%-20s: %s%n", "Número do Pedido", pedido.getNumeroPedido());
+                System.out.printf("%-20s: %s%n", "Data da Compra", pedido.getDataCompra());
+                System.out.printf("%-20s: R$ %.2f%n", "Valor", pedido.getValor());
+                System.out.printf("%-20s: %s%n", "Status Atual", pedido.getStatus().getDescricao());
+
+                if (pedido.getPrevisaoEntrega() != null) {
+                    System.out.printf("%-20s: %s%n", "Previsão Entrega", pedido.getPrevisaoEntrega());
+                }
+
+                System.out.printf("%-20s: %d dias%n", "Dias desde compra", pedido.getDiasDesdeCompra());
+
+            } else {
+                System.out.println("Pedido não encontrado com número: " + numeroPedido);
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao consultar pedido: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void gerenciarPedidos() {
+        limparTela();
+        System.out.println("=== GERENCIAR PEDIDOS ===");
+        System.out.println();
+
+        try {
+            List<PedidoDto> pedidos = pedidoService.listarTodosPedidos();
+
+            if (pedidos.isEmpty()) {
+                System.out.println("Nenhum pedido encontrado.");
+            } else {
+                System.out.printf("%-5s %-15s %-25s %-15s %-20s%n",
+                        "ID", "Número", "Cliente", "Valor", "Status");
+                System.out.println("─".repeat(90));
+
+                for (PedidoDto pedido : pedidos) {
+                    String nomeCliente = pedido.getNomeCliente();
+                    if (nomeCliente.length() > 24) {
+                        nomeCliente = nomeCliente.substring(0, 21) + "...";
+                    }
+
+                    System.out.printf("%-5d %-15s %-25s R$ %-10.2f %-20s%n",
+                            pedido.getId(),
+                            pedido.getNumeroPedido(),
+                            nomeCliente,
+                            pedido.getValor(),
+                            pedido.getStatus().getDescricao()
+                    );
+                }
+
+                System.out.println("─".repeat(90));
+                System.out.println("Total de pedidos: " + pedidos.size());
+            }
+
+        } catch (Exception e) {
+            System.out.println("Erro ao listar pedidos: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void buscarPedidos() {
+        limparTela();
+        System.out.println("=== BUSCAR PEDIDOS ===");
+        System.out.println();
+        System.out.println("1. Buscar por Status");
+        System.out.println("2. Buscar por Número");
+        System.out.println("3. Buscar por Nome do Cliente");
+        System.out.println("0. Voltar");
+        System.out.println();
+        System.out.print("Escolha uma opção: ");
+
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (opcao) {
+                case 1:
+                    buscarPedidosPorStatus();
+                    break;
+                case 2:
+                    buscarPedidosPorNumero();
+                    break;
+                case 3:
+                    buscarPedidosPorCliente();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+            pausa();
+        }
+    }
+
+    private void buscarPedidosPorStatus() {
+        System.out.println("Status disponíveis:");
+        StatusPedido[] statuses = StatusPedido.values();
+        for (int i = 0; i < statuses.length; i++) {
+            System.out.println((i + 1) + ". " + statuses[i] + " - " + statuses[i].getDescricao());
+        }
+
+        System.out.print("Escolha o status (1-" + statuses.length + "): ");
+
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            if (opcao >= 1 && opcao <= statuses.length) {
+                StatusPedido status = statuses[opcao - 1];
+
+                List<PedidoDto> pedidos = pedidoService.listarPedidosPorStatus(status);
+
+                System.out.println();
+                System.out.println("Pedidos com status: " + status.getDescricao());
+                System.out.println("Total encontrado: " + pedidos.size());
+                System.out.println();
+
+                if (!pedidos.isEmpty()) {
+                    for (PedidoDto pedido : pedidos) {
+                        System.out.printf("ID: %d | Número: %s | Cliente: %s | Valor: R$ %.2f%n",
+                                pedido.getId(), pedido.getNumeroPedido(),
+                                pedido.getNomeCliente(), pedido.getValor());
+                    }
+                }
+            } else {
+                System.out.println("Opção inválida!");
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar pedidos: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void buscarPedidosPorNumero() {
+        System.out.print("Digite parte do número do pedido: ");
+        String numeroPedido = scanner.nextLine().trim();
+
+        try {
+            List<PedidoDto> pedidos = pedidoService.buscarComFiltros(null, null, numeroPedido, null);
+
+            System.out.println();
+            System.out.println("Pedidos encontrados: " + pedidos.size());
+            System.out.println();
+
+            if (!pedidos.isEmpty()) {
+                for (PedidoDto pedido : pedidos) {
+                    System.out.printf("ID: %d | Número: %s | Cliente: %s | Status: %s%n",
+                            pedido.getId(), pedido.getNumeroPedido(),
+                            pedido.getNomeCliente(), pedido.getStatus().getDescricao());
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar pedidos: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void buscarPedidosPorCliente() {
+        System.out.print("Digite parte do nome do cliente: ");
+        String nomeCliente = scanner.nextLine().trim();
+
+        try {
+            List<PedidoDto> pedidos = pedidoService.buscarComFiltros(null, null, null, nomeCliente);
+
+            System.out.println();
+            System.out.println("Pedidos encontrados: " + pedidos.size());
+            System.out.println();
+
+            if (!pedidos.isEmpty()) {
+                for (PedidoDto pedido : pedidos) {
+                    System.out.printf("ID: %d | Número: %s | Cliente: %s | Status: %s%n",
+                            pedido.getId(), pedido.getNumeroPedido(),
+                            pedido.getNomeCliente(), pedido.getStatus().getDescricao());
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar pedidos: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void atualizarStatusPedido() {
+        limparTela();
+        System.out.println("=== ATUALIZAR STATUS DO PEDIDO ===");
+        System.out.println();
+
+        System.out.print("Digite o ID do pedido: ");
+        try {
+            Long pedidoId = scanner.nextLong();
+            scanner.nextLine();
+
+            // Buscar o pedido
+            Optional<PedidoDto> pedidoOpt = pedidoService.buscarPorId(pedidoId);
+
+            if (pedidoOpt.isEmpty()) {
+                System.out.println("Pedido não encontrado com ID: " + pedidoId);
+                pausa();
+                return;
+            }
+
+            PedidoDto pedido = pedidoOpt.get();
+
+            System.out.println();
+            System.out.println("Pedido encontrado:");
+            System.out.println("Número: " + pedido.getNumeroPedido());
+            System.out.println("Cliente: " + pedido.getNomeCliente());
+            System.out.println("Status atual: " + pedido.getStatus().getDescricao());
+            System.out.println();
+
+            // Exibir status disponíveis
+            System.out.println("Novos status disponíveis:");
+            StatusPedido[] statuses = StatusPedido.values();
+            for (int i = 0; i < statuses.length; i++) {
+                System.out.println((i + 1) + ". " + statuses[i] + " - " + statuses[i].getDescricao());
+            }
+
+            System.out.print("Escolha o novo status (1-" + statuses.length + "): ");
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            if (opcao >= 1 && opcao <= statuses.length) {
+                StatusPedido novoStatus = statuses[opcao - 1];
+
+                System.out.print("Observação (opcional): ");
+                String observacao = scanner.nextLine().trim();
+
+                if (observacao.isEmpty()) {
+                    observacao = "Status atualizado via CLI";
+                }
+
+                PedidoDto pedidoAtualizado = pedidoService.atualizarStatus(
+                        pedidoId, novoStatus, observacao, atendenteLogado.getNome()
+                );
+
+                System.out.println();
+                System.out.println("✅ Status atualizado com sucesso!");
+                System.out.println("Novo status: " + pedidoAtualizado.getStatus().getDescricao());
+
+            } else {
+                System.out.println("Opção inválida!");
+            }
+
+        } catch (InputMismatchException e) {
+            System.out.println("ID inválido! Digite apenas números.");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao atualizar status: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void exibirEstatisticasPedidos() {
+        limparTela();
+        System.out.println("=== ESTATÍSTICAS DE PEDIDOS ===");
+        System.out.println();
+
+        try {
+            StatusPedido[] statuses = StatusPedido.values();
+
+            System.out.println("Pedidos por Status:");
+            System.out.println("─".repeat(50));
+
+            long total = 0;
+            for (StatusPedido status : statuses) {
+                long count = pedidoService.contarPedidosPorStatus(status);
+                total += count;
+                System.out.printf("%-20s: %d%n", status.getDescricao(), count);
+            }
+
+            System.out.println("─".repeat(50));
+            System.out.printf("%-20s: %d%n", "TOTAL", total);
+
+        } catch (Exception e) {
+            System.out.println("Erro ao obter estatísticas: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void exibirDetalhesPedido(PedidoDto pedido) {
+        System.out.println("=== DETALHES DO PEDIDO ===");
+        System.out.println();
+        System.out.printf("%-20s: %s%n", "ID", pedido.getId());
+        System.out.printf("%-20s: %s%n", "Número", pedido.getNumeroPedido());
+        System.out.printf("%-20s: %s%n", "Cliente", pedido.getNomeCliente());
+        System.out.printf("%-20s: %s%n", "Email Cliente", pedido.getEmailCliente());
+        System.out.printf("%-20s: %s%n", "Data da Compra", pedido.getDataCompra());
+        System.out.printf("%-20s: R$ %.2f%n", "Valor", pedido.getValor());
+        System.out.printf("%-20s: %s%n", "Status", pedido.getStatus().getDescricao());
+
+        if (pedido.getPrevisaoEntrega() != null) {
+            System.out.printf("%-20s: %s%n", "Previsão Entrega", pedido.getPrevisaoEntrega());
+        }
+
+        if (pedido.getObservacoes() != null && !pedido.getObservacoes().isEmpty()) {
+            System.out.printf("%-20s: %s%n", "Observações", pedido.getObservacoes());
+        }
+
+        System.out.printf("%-20s: %d dias%n", "Dias desde compra", pedido.getDiasDesdeCompra());
+        System.out.printf("%-20s: %s%n", "Pode ser cancelado", pedido.getPodeSerCancelado() ? "Sim" : "Não");
+        System.out.printf("%-20s: %s%n", "Entregue", pedido.getIsEntregue() ? "Sim" : "Não");
+    }
+
+    private void exibirHistoricoPedido(Long pedidoId) {
+        try {
+            List<HistoricoStatusDto> historico = pedidoService.buscarHistoricoPedido(pedidoId);
+
+            if (!historico.isEmpty()) {
+                System.out.println();
+                System.out.println("=== HISTÓRICO DE STATUS ===");
+                System.out.println();
+
+                for (HistoricoStatusDto item : historico) {
+                    System.out.println("• " + item.getDataAtualizacao() + " - " + item.getStatus().getDescricao());
+
+                    if (item.getObservacao() != null && !item.getObservacao().isEmpty()) {
+                        System.out.println("  Observação: " + item.getObservacao());
+                    }
+
+                    if (item.getResponsavel() != null && !item.getResponsavel().isEmpty()) {
+                        System.out.println("  Responsável: " + item.getResponsavel());
+                    }
+
+                    System.out.println();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao obter histórico: " + e.getMessage());
         }
     }
 
@@ -650,14 +1258,16 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println("- Ver exemplos de requisições e respostas");
         System.out.println("- Baixar a especificação OpenAPI");
         System.out.println();
-        System.out.println("Endpoints principais implementados no Sprint 1:");
-        System.out.println("- POST /api/auth/login - Login genérico");
-        System.out.println("- POST /api/auth/login/cliente - Login de cliente");
-        System.out.println("- POST /api/auth/login/atendente - Login de atendente");
-        System.out.println("- POST /api/clientes - Registrar novo cliente");
-        System.out.println("- GET /api/clientes - Listar clientes");
-        System.out.println("- GET /api/clientes/{id} - Buscar cliente por ID");
-        System.out.println("- PUT /api/clientes/{id} - Atualizar cliente");
+        System.out.println("Endpoints implementados na Sprint 2:");
+        System.out.println("- POST /api/pedidos - Criar novo pedido");
+        System.out.println("- GET /api/pedidos/{id} - Buscar pedido por ID");
+        System.out.println("- GET /api/pedidos/numero/{numero} - Buscar por número");
+        System.out.println("- GET /api/pedidos/cliente/{clienteId} - Pedidos do cliente");
+        System.out.println("- GET /api/pedidos - Listar todos os pedidos");
+        System.out.println("- PUT /api/pedidos/{id}/status - Atualizar status");
+        System.out.println("- PUT /api/pedidos/{id}/cancelar - Cancelar pedido");
+        System.out.println("- GET /api/pedidos/buscar - Buscar com filtros");
+        System.out.println("- GET /api/pedidos/{id}/historico - Histórico do pedido");
         System.out.println();
         System.out.println("Console H2 Database:");
         System.out.println("- Acesse: http://localhost:8080/api/h2-console");
