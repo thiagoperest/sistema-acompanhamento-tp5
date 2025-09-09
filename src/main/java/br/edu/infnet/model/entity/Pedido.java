@@ -59,6 +59,14 @@ public class Pedido {
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<HistoricoStatus> historicoStatus = new ArrayList<>();
 
+    // Relacionamento 1:N com Notificacao
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Notificacao> notificacoes = new ArrayList<>();
+
+    // Relacionamento 1:1 com DadosRastreamento
+    @OneToOne(mappedBy = "pedido", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private DadosRastreamento dadosRastreamento;
+
     public Pedido() {
         this.dataCompra = LocalDateTime.now();
         this.status = StatusPedido.CONFIRMADO;
@@ -141,6 +149,22 @@ public class Pedido {
 
     public void setHistoricoStatus(List<HistoricoStatus> historicoStatus) {
         this.historicoStatus = historicoStatus;
+    }
+
+    public List<Notificacao> getNotificacoes() {
+        return notificacoes;
+    }
+
+    public void setNotificacoes(List<Notificacao> notificacoes) {
+        this.notificacoes = notificacoes;
+    }
+
+    public DadosRastreamento getDadosRastreamento() {
+        return dadosRastreamento;
+    }
+
+    public void setDadosRastreamento(DadosRastreamento dadosRastreamento) {
+        this.dadosRastreamento = dadosRastreamento;
     }
 
     /**

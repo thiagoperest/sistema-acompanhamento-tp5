@@ -33,6 +33,10 @@ public class Cliente extends Usuario {
     @Column(nullable = false, length = 8)
     private String cep;
 
+    // Relacionamento 1:1 com PreferenciasNotificacao
+    @OneToOne(mappedBy = "cliente", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private PreferenciasNotificacao preferenciasNotificacao;
+
     public Cliente() {
         super();
     }
@@ -75,6 +79,14 @@ public class Cliente extends Usuario {
 
     public void setCep(String cep) {
         this.cep = cep;
+    }
+
+    public PreferenciasNotificacao getPreferenciasNotificacao() {
+        return preferenciasNotificacao;
+    }
+
+    public void setPreferenciasNotificacao(PreferenciasNotificacao preferenciasNotificacao) {
+        this.preferenciasNotificacao = preferenciasNotificacao;
     }
 
     /**
