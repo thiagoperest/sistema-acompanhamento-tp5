@@ -3,12 +3,17 @@ package br.edu.infnet.cli;
 import br.edu.infnet.model.dto.ClienteDto;
 import br.edu.infnet.model.dto.HistoricoStatusDto;
 import br.edu.infnet.model.dto.LoginDto;
+import br.edu.infnet.model.dto.NotificacaoDto;
 import br.edu.infnet.model.dto.PedidoDto;
+import br.edu.infnet.model.dto.PreferenciasNotificacaoDto;
 import br.edu.infnet.model.entity.AtendenteSuporte;
 import br.edu.infnet.model.enums.StatusPedido;
+import br.edu.infnet.model.enums.TipoNotificacao;
 import br.edu.infnet.service.AuthService;
 import br.edu.infnet.service.ClienteService;
+import br.edu.infnet.service.NotificacaoService;
 import br.edu.infnet.service.PedidoService;
+import br.edu.infnet.service.PreferenciasNotificacaoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -35,6 +40,12 @@ public class SistemaCli implements CommandLineRunner {
 
     @Autowired
     private PedidoService pedidoService;
+
+    @Autowired
+    private NotificacaoService notificacaoService;
+
+    @Autowired
+    private PreferenciasNotificacaoService preferenciasNotificacaoService;
 
     private Scanner scanner;
     private ClienteDto clienteLogado;
@@ -65,7 +76,7 @@ public class SistemaCli implements CommandLineRunner {
 
         scanner.close();
         System.out.println("\nObrigado por usar o Sistema de Acompanhamento de Pedidos!");
-        System.out.println("Até logo! 👋");
+        System.out.println("Ate logo!");
     }
 
     private void exibirBemVindo() {
@@ -150,7 +161,7 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println("4. Criar Novo Pedido");
         System.out.println("5. Buscar Pedido");
         System.out.println("6. Acompanhar Pedido");
-        System.out.println("7. Notificações (Pendente)");
+        System.out.println("7. Gerenciar Notificações");
         System.out.println("8. Suporte (Pendente)");
         System.out.println("0. Logout");
         System.out.println();
@@ -180,6 +191,8 @@ public class SistemaCli implements CommandLineRunner {
                     acompanharPedido();
                     break;
                 case 7:
+                    gerenciarNotificacoesCliente();
+                    break;
                 case 8:
                     System.out.println("Funcionalidade será implementada nas próximas sprints!");
                     pausa();
@@ -213,7 +226,8 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println("4. Buscar Pedidos");
         System.out.println("5. Atualizar Status de Pedido");
         System.out.println("6. Estatísticas de Pedidos");
-        System.out.println("7. Suporte (Pendente Sprint 4)");
+        System.out.println("7. Gerenciar Notificações");
+        System.out.println("8. Suporte (Pendente Sprint 4)");
         System.out.println("0. Logout");
         System.out.println();
         System.out.print("Escolha uma opção: ");
@@ -242,7 +256,10 @@ public class SistemaCli implements CommandLineRunner {
                     exibirEstatisticasPedidos();
                     break;
                 case 7:
-                    System.out.println("Funcionalidade será implementada nas próximas sprints!");
+                    gerenciarNotificacoesAtendente();
+                    break;
+                case 8:
+                    System.out.println("Funcionalidade será implementada na Sprint 4!");
                     pausa();
                     break;
                 case 0:
@@ -789,7 +806,7 @@ public class SistemaCli implements CommandLineRunner {
                 );
 
                 System.out.println();
-                System.out.println("✅ Status atualizado com sucesso!");
+                System.out.println("Status atualizado com sucesso!");
                 System.out.println("Novo status: " + pedidoAtualizado.getStatus().getDescricao());
 
             } else {
@@ -1308,5 +1325,632 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println();
         System.out.print("Pressione Enter para continuar...");
         scanner.nextLine();
+    }
+
+    private void gerenciarNotificacoesCliente() {
+        limparTela();
+        System.out.println("=== GERENCIAR NOTIFICAÇÕES ===");
+        System.out.println();
+        System.out.println("1. Minhas Notificações");
+        System.out.println("2. Notificações Não Lidas");
+        System.out.println("3. Marcar Notificação como Lida");
+        System.out.println("4. Buscar Notificações por Tipo");
+        System.out.println("5. Configurar Preferências de Notificação");
+        System.out.println("0. Voltar");
+        System.out.println();
+        System.out.print("Escolha uma opção: ");
+
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (opcao) {
+                case 1:
+                    listarMinhasNotificacoes();
+                    break;
+                case 2:
+                    listarNotificacoesNaoLidas();
+                    break;
+                case 3:
+                    marcarNotificacaoComoLida();
+                    break;
+                case 4:
+                    buscarNotificacoesPorTipo();
+                    break;
+                case 5:
+                    gerenciarPreferenciasNotificacao();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+            pausa();
+        }
+    }
+
+    private void listarMinhasNotificacoes() {
+        limparTela();
+        System.out.println("=== MINHAS NOTIFICAÇÕES ===");
+        System.out.println();
+
+        try {
+            List<NotificacaoDto> notificacoes = notificacaoService.buscarPorCliente(clienteLogado.getId());
+
+            if (notificacoes.isEmpty()) {
+                System.out.println("Você não possui notificações.");
+            } else {
+                System.out.printf("%-5s %-15s %-20s %-10s %-30s%n",
+                        "ID", "Tipo", "Data/Hora", "Lida", "Título");
+                System.out.println("─".repeat(85));
+
+                for (NotificacaoDto notificacao : notificacoes) {
+                    String titulo = notificacao.getTitulo();
+                    if (titulo.length() > 29) {
+                        titulo = titulo.substring(0, 26) + "...";
+                    }
+
+                    System.out.printf("%-5d %-15s %-20s %-10s %-30s%n",
+                            notificacao.getId(),
+                            notificacao.getTipo().getDescricao(),
+                            notificacao.getDataEnvio(),
+                            notificacao.getLida() ? "Sim" : "Não",
+                            titulo
+                    );
+                }
+
+                System.out.println("─".repeat(85));
+                System.out.println("Total de notificações: " + notificacoes.size());
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar notificações: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void listarNotificacoesNaoLidas() {
+        limparTela();
+        System.out.println("=== NOTIFICAÇÕES NÃO LIDAS ===");
+        System.out.println();
+
+        try {
+            List<NotificacaoDto> notificacoes = notificacaoService.buscarNaoLidasPorCliente(clienteLogado.getId());
+
+            if (notificacoes.isEmpty()) {
+                System.out.println("Você não possui notificações não lidas.");
+            } else {
+                System.out.printf("%-5s %-15s %-20s %-40s%n",
+                        "ID", "Tipo", "Data/Hora", "Título");
+                System.out.println("─".repeat(85));
+
+                for (NotificacaoDto notificacao : notificacoes) {
+                    String titulo = notificacao.getTitulo();
+                    if (titulo.length() > 39) {
+                        titulo = titulo.substring(0, 36) + "...";
+                    }
+
+                    System.out.printf("%-5d %-15s %-20s %-40s%n",
+                            notificacao.getId(),
+                            notificacao.getTipo().getDescricao(),
+                            notificacao.getDataEnvio(),
+                            titulo
+                    );
+                }
+
+                System.out.println("─".repeat(85));
+                System.out.println("Total não lidas: " + notificacoes.size());
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar notificações não lidas: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void marcarNotificacaoComoLida() {
+        System.out.print("Digite o ID da notificação: ");
+        try {
+            Long id = scanner.nextLong();
+            scanner.nextLine();
+
+            NotificacaoDto notificacao = notificacaoService.marcarComoLida(id);
+
+            System.out.println();
+            System.out.println("Notificação marcada como lida com sucesso!");
+            System.out.println("Título: " + notificacao.getTitulo());
+
+        } catch (InputMismatchException e) {
+            System.out.println("ID inválido! Digite apenas números.");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao marcar notificação: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void buscarNotificacoesPorTipo() {
+        System.out.println("Tipos de notificação disponíveis:");
+        TipoNotificacao[] tipos = TipoNotificacao.values();
+        for (int i = 0; i < tipos.length; i++) {
+            System.out.println((i + 1) + ". " + tipos[i].getDescricao());
+        }
+
+        System.out.print("Escolha o tipo (1-" + tipos.length + "): ");
+
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            if (opcao >= 1 && opcao <= tipos.length) {
+                TipoNotificacao tipo = tipos[opcao - 1];
+
+                // Buscar todas as notificações do cliente e filtrar por tipo
+                List<NotificacaoDto> todasNotificacoes = notificacaoService.buscarPorCliente(clienteLogado.getId());
+                List<NotificacaoDto> notificacoes = todasNotificacoes.stream()
+                        .filter(n -> n.getTipo().equals(tipo))
+                        .collect(java.util.stream.Collectors.toList());
+
+                System.out.println();
+                System.out.println("Notificações do tipo: " + tipo.getDescricao());
+                System.out.println("Total encontrado: " + notificacoes.size());
+                System.out.println();
+
+                if (!notificacoes.isEmpty()) {
+                    for (NotificacaoDto notificacao : notificacoes) {
+                        System.out.printf("ID: %d | Data: %s | Lida: %s | Título: %s%n",
+                                notificacao.getId(),
+                                notificacao.getDataEnvio(),
+                                notificacao.getLida() ? "Sim" : "Não",
+                                notificacao.getTitulo());
+                    }
+                }
+            } else {
+                System.out.println("Opção inválida!");
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar notificações: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void gerenciarNotificacoesAtendente() {
+        limparTela();
+        System.out.println("=== GERENCIAR NOTIFICAÇÕES (ATENDENTE) ===");
+        System.out.println();
+        System.out.println("1. Listar Todas as Notificações");
+        System.out.println("2. Buscar Notificações por Cliente");
+        System.out.println("3. Buscar Notificações por Tipo");
+        System.out.println("4. Notificações Não Lidas (Sistema)");
+        System.out.println("5. Estatísticas de Notificações");
+        System.out.println("0. Voltar");
+        System.out.println();
+        System.out.print("Escolha uma opção: ");
+
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (opcao) {
+                case 1:
+                    listarTodasNotificacoes();
+                    break;
+                case 2:
+                    buscarNotificacoesPorClienteAtendente();
+                    break;
+                case 3:
+                    buscarNotificacoesPorTipoAtendente();
+                    break;
+                case 4:
+                    listarNotificacoesNaoLidasSistema();
+                    break;
+                case 5:
+                    exibirEstatisticasNotificacoes();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+            pausa();
+        }
+    }
+
+    private void listarTodasNotificacoes() {
+        limparTela();
+        System.out.println("=== TODAS AS NOTIFICAÇÕES ===");
+        System.out.println();
+
+        try {
+            List<NotificacaoDto> notificacoes = notificacaoService.buscarRecentes();
+
+            if (notificacoes.isEmpty()) {
+                System.out.println("Nenhuma notificação encontrada.");
+            } else {
+                System.out.printf("%-5s %-25s %-15s %-20s %-10s %-30s%n",
+                        "ID", "Cliente", "Tipo", "Data/Hora", "Lida", "Título");
+                System.out.println("─".repeat(110));
+
+                for (NotificacaoDto notificacao : notificacoes) {
+                    String nomeCliente = notificacao.getNomeCliente();
+                    if (nomeCliente != null && nomeCliente.length() > 24) {
+                        nomeCliente = nomeCliente.substring(0, 21) + "...";
+                    }
+
+                    String titulo = notificacao.getTitulo();
+                    if (titulo.length() > 29) {
+                        titulo = titulo.substring(0, 26) + "...";
+                    }
+
+                    System.out.printf("%-5d %-25s %-15s %-20s %-10s %-30s%n",
+                            notificacao.getId(),
+                            nomeCliente != null ? nomeCliente : "N/A",
+                            notificacao.getTipo().getDescricao(),
+                            notificacao.getDataEnvio(),
+                            notificacao.getLida() ? "Sim" : "Não",
+                            titulo
+                    );
+                }
+
+                System.out.println("─".repeat(110));
+                System.out.println("Total de notificações: " + notificacoes.size());
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar notificações: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void buscarNotificacoesPorClienteAtendente() {
+        System.out.print("Digite o ID do cliente: ");
+        try {
+            Long clienteId = scanner.nextLong();
+            scanner.nextLine();
+
+            List<NotificacaoDto> notificacoes = notificacaoService.buscarPorCliente(clienteId);
+
+            System.out.println();
+            System.out.println("Notificações do cliente ID: " + clienteId);
+            System.out.println("Total encontrado: " + notificacoes.size());
+            System.out.println();
+
+            if (!notificacoes.isEmpty()) {
+                for (NotificacaoDto notificacao : notificacoes) {
+                    System.out.printf("ID: %d | Tipo: %s | Data: %s | Lida: %s%n",
+                            notificacao.getId(),
+                            notificacao.getTipo().getDescricao(),
+                            notificacao.getDataEnvio(),
+                            notificacao.getLida() ? "Sim" : "Não");
+                    System.out.println("  Título: " + notificacao.getTitulo());
+                    System.out.println();
+                }
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("ID inválido! Digite apenas números.");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar notificações: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void buscarNotificacoesPorTipoAtendente() {
+        System.out.println("Tipos de notificação disponíveis:");
+        TipoNotificacao[] tipos = TipoNotificacao.values();
+        for (int i = 0; i < tipos.length; i++) {
+            System.out.println((i + 1) + ". " + tipos[i].getDescricao());
+        }
+
+        System.out.print("Escolha o tipo (1-" + tipos.length + "): ");
+
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            if (opcao >= 1 && opcao <= tipos.length) {
+                TipoNotificacao tipo = tipos[opcao - 1];
+
+                List<NotificacaoDto> notificacoes = notificacaoService.buscarPorTipo(tipo);
+
+                System.out.println();
+                System.out.println("Notificações do tipo: " + tipo.getDescricao());
+                System.out.println("Total encontrado: " + notificacoes.size());
+                System.out.println();
+
+                if (!notificacoes.isEmpty()) {
+                    for (NotificacaoDto notificacao : notificacoes) {
+                        System.out.printf("ID: %d | Cliente: %s | Data: %s | Lida: %s%n",
+                                notificacao.getId(),
+                                notificacao.getNomeCliente() != null ?
+                                        notificacao.getNomeCliente() : "N/A",
+                                notificacao.getDataEnvio(),
+                                notificacao.getLida() ? "Sim" : "Não");
+                        System.out.println("  Título: " + notificacao.getTitulo());
+                        System.out.println();
+                    }
+                }
+            } else {
+                System.out.println("Opção inválida!");
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar notificações: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void listarNotificacoesNaoLidasSistema() {
+        limparTela();
+        System.out.println("=== NOTIFICAÇÕES NÃO LIDAS (SISTEMA) ===");
+        System.out.println();
+
+        try {
+            List<NotificacaoDto> todasRecentes = notificacaoService.buscarRecentes();
+            List<NotificacaoDto> notificacoes = todasRecentes.stream()
+                    .filter(n -> !n.getLida())
+                    .collect(java.util.stream.Collectors.toList());
+
+            if (notificacoes.isEmpty()) {
+                System.out.println("Não há notificações não lidas no sistema.");
+            } else {
+                System.out.printf("%-5s %-25s %-15s %-20s %-30s%n",
+                        "ID", "Cliente", "Tipo", "Data/Hora", "Título");
+                System.out.println("─".repeat(100));
+
+                for (NotificacaoDto notificacao : notificacoes) {
+                    String nomeCliente = notificacao.getNomeCliente();
+                    if (nomeCliente != null && nomeCliente.length() > 24) {
+                        nomeCliente = nomeCliente.substring(0, 21) + "...";
+                    }
+
+                    String titulo = notificacao.getTitulo();
+                    if (titulo.length() > 29) {
+                        titulo = titulo.substring(0, 26) + "...";
+                    }
+
+                    System.out.printf("%-5d %-25s %-15s %-20s %-30s%n",
+                            notificacao.getId(),
+                            nomeCliente != null ? nomeCliente : "N/A",
+                            notificacao.getTipo().getDescricao(),
+                            notificacao.getDataEnvio(),
+                            titulo
+                    );
+                }
+
+                System.out.println("─".repeat(100));
+                System.out.println("Total não lidas: " + notificacoes.size());
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar notificações não lidas: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void exibirEstatisticasNotificacoes() {
+        limparTela();
+        System.out.println("=== ESTATÍSTICAS DE NOTIFICAÇÕES ===");
+        System.out.println();
+
+        try {
+            List<NotificacaoDto> todasRecentes = notificacaoService.buscarRecentes();
+            TipoNotificacao[] tipos = TipoNotificacao.values();
+
+            System.out.println("Notificações Recentes por Tipo:");
+            System.out.println("─".repeat(50));
+
+            long total = 0;
+            for (TipoNotificacao tipo : tipos) {
+                long count = todasRecentes.stream()
+                        .filter(n -> n.getTipo().equals(tipo))
+                        .count();
+                total += count;
+                System.out.printf("%-25s: %d%n", tipo.getDescricao(), count);
+            }
+
+            System.out.println("─".repeat(50));
+            System.out.printf("%-25s: %d%n", "TOTAL", total);
+
+            long naoLidas = todasRecentes.stream()
+                    .filter(n -> !n.getLida())
+                    .count();
+            System.out.printf("%-25s: %d%n", "NÃO LIDAS", naoLidas);
+
+        } catch (Exception e) {
+            System.out.println("Erro ao obter estatísticas: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void gerenciarPreferenciasNotificacao() {
+        limparTela();
+        System.out.println("=== CONFIGURAÇÕES DE NOTIFICAÇÃO ===");
+        System.out.println();
+        System.out.println("1. Ver Minhas Preferências");
+        System.out.println("2. Configurar Preferências");
+        System.out.println("3. Ativar/Desativar Todas as Notificações");
+        System.out.println("0. Voltar");
+        System.out.println();
+        System.out.print("Escolha uma opção: ");
+
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (opcao) {
+                case 1:
+                    verMinhasPreferencias();
+                    break;
+                case 2:
+                    configurarPreferencias();
+                    break;
+                case 3:
+                    ativarDesativarTodasNotificacoes();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+            pausa();
+        }
+    }
+
+    private void verMinhasPreferencias() {
+        limparTela();
+        System.out.println("=== MINHAS PREFERÊNCIAS DE NOTIFICAÇÃO ===");
+        System.out.println();
+
+        try {
+            Optional<PreferenciasNotificacaoDto> preferenciaOpt =
+                    preferenciasNotificacaoService.buscarPorCliente(clienteLogado.getId());
+
+            if (preferenciaOpt.isPresent()) {
+                PreferenciasNotificacaoDto preferencia = preferenciaOpt.get();
+
+                System.out.printf("%-25s: %s%n", "Tem Notificação Ativa", preferencia.getTemAlgumaNotificacaoAtiva() ? "Sim" : "Não");
+                System.out.printf("%-25s: %s%n", "Email Ativo", preferencia.getEmailAtivo() ? "Sim" : "Não");
+                System.out.printf("%-25s: %s%n", "SMS Ativo", preferencia.getSmsAtivo() ? "Sim" : "Não");
+                System.out.printf("%-25s: %s%n", "Push Ativo", preferencia.getPushAtivo() ? "Sim" : "Não");
+                System.out.printf("%-25s: %s%n", "Horário Permitido", preferencia.getHorarioPermitido() ? "Sim" : "Não");
+                
+                if (preferencia.getHorarioInicio() != null && preferencia.getHorarioFim() != null) {
+                    System.out.printf("%-25s: %s às %s%n", "Horário",
+                            preferencia.getHorarioInicio(), preferencia.getHorarioFim());
+                }
+
+            } else {
+                System.out.println("Você ainda não possui preferências configuradas.");
+                System.out.print("Deseja criar as preferências padrão? (s/n): ");
+                String resposta = scanner.nextLine().trim().toLowerCase();
+
+                if (resposta.equals("s") || resposta.equals("sim")) {
+                    criarPreferenciasPadrao();
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar preferências: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void criarPreferenciasPadrao() {
+        try {
+            PreferenciasNotificacaoDto novaPreferencia = new PreferenciasNotificacaoDto();
+            novaPreferencia.setClienteId(clienteLogado.getId());
+
+            PreferenciasNotificacaoDto preferenciaCriada =
+                    preferenciasNotificacaoService.criarPreferencias(novaPreferencia);
+
+            System.out.println();
+            System.out.println("Preferências padrão criadas com sucesso!");
+            System.out.println("ID: " + preferenciaCriada.getId());
+
+        } catch (Exception e) {
+            System.out.println("Erro ao criar preferências: " + e.getMessage());
+        }
+    }
+
+    private void configurarPreferencias() {
+        limparTela();
+        System.out.println("=== CONFIGURAR PREFERÊNCIAS ===");
+        System.out.println();
+
+        try {
+            PreferenciasNotificacaoDto preferencia = new PreferenciasNotificacaoDto();
+            preferencia.setClienteId(clienteLogado.getId());
+
+            System.out.print("Ativar notificações por email? (s/n): ");
+            String email = scanner.nextLine().trim().toLowerCase();
+            preferencia.setEmailAtivo(email.equals("s") || email.equals("sim"));
+
+            System.out.print("Ativar notificações por SMS? (s/n): ");
+            String sms = scanner.nextLine().trim().toLowerCase();
+            preferencia.setSmsAtivo(sms.equals("s") || sms.equals("sim"));
+
+            System.out.print("Ativar notificações push? (s/n): ");
+            String push = scanner.nextLine().trim().toLowerCase();
+            preferencia.setPushAtivo(push.equals("s") || push.equals("sim"));
+
+            System.out.print("Horário de início (HH:mm, ex: 08:00): ");
+            String horarioInicio = scanner.nextLine().trim();
+            if (!horarioInicio.isEmpty()) {
+                preferencia.setHorarioInicio(horarioInicio);
+            }
+
+            System.out.print("Horário de fim (HH:mm, ex: 22:00): ");
+            String horarioFim = scanner.nextLine().trim();
+            if (!horarioFim.isEmpty()) {
+                preferencia.setHorarioFim(horarioFim);
+            }
+
+            Optional<PreferenciasNotificacaoDto> existente =
+                    preferenciasNotificacaoService.buscarPorCliente(clienteLogado.getId());
+
+            PreferenciasNotificacaoDto resultado;
+            if (existente.isPresent()) {
+                resultado = preferenciasNotificacaoService.atualizarPreferencias(
+                        existente.get().getId(), preferencia);
+                System.out.println();
+                System.out.println("Preferências atualizadas com sucesso!");
+            } else {
+                resultado = preferenciasNotificacaoService.criarPreferencias(preferencia);
+                System.out.println();
+                System.out.println("Preferências criadas com sucesso!");
+            }
+
+            System.out.println("ID: " + resultado.getId());
+
+        } catch (Exception e) {
+            System.out.println("Erro ao configurar preferências: " + e.getMessage());
+        }
+
+        pausa();
+    }
+
+    private void ativarDesativarTodasNotificacoes() {
+        System.out.print("Ativar (a) ou Desativar (d) todas as notificações? ");
+        String acao = scanner.nextLine().trim().toLowerCase();
+        boolean ativar = acao.equals("a") || acao.equals("ativar");
+
+        try {
+            if (ativar) {
+                preferenciasNotificacaoService.ativarTodasNotificacoes(clienteLogado.getId());
+                System.out.println();
+                System.out.println("Todas as notificações foram ativadas!");
+            } else {
+                preferenciasNotificacaoService.desativarTodasNotificacoes(clienteLogado.getId());
+                System.out.println();
+                System.out.println("Todas as notificações foram desativadas!");
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao atualizar notificações: " + e.getMessage());
+        }
+
+        pausa();
     }
 }
