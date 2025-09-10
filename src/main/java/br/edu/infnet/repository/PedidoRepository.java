@@ -43,6 +43,11 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     List<Pedido> findByStatusOrderByDataCompraDesc(StatusPedido status);
 
     /**
+     * Busca pedidos por lista de status
+     */
+    List<Pedido> findByStatusIn(List<StatusPedido> statusList);
+
+    /**
      * Busca pedidos por cliente e status
      */
     List<Pedido> findByClienteIdAndStatus(Long clienteId, StatusPedido status);
