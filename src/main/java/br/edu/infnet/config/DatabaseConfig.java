@@ -2,13 +2,20 @@ package br.edu.infnet.config;
 
 import br.edu.infnet.model.entity.AtendenteSuporte;
 import br.edu.infnet.model.entity.Cliente;
+import br.edu.infnet.model.entity.DadosRastreamento;
 import br.edu.infnet.model.entity.HistoricoStatus;
+import br.edu.infnet.model.entity.Notificacao;
 import br.edu.infnet.model.entity.Pedido;
+import br.edu.infnet.model.entity.PreferenciasNotificacao;
 import br.edu.infnet.model.enums.StatusPedido;
+import br.edu.infnet.model.enums.TipoNotificacao;
 import br.edu.infnet.repository.AtendenteSuporteRepository;
 import br.edu.infnet.repository.ClienteRepository;
+import br.edu.infnet.repository.DadosRastreamentoRepository;
 import br.edu.infnet.repository.HistoricoStatusRepository;
+import br.edu.infnet.repository.NotificacaoRepository;
 import br.edu.infnet.repository.PedidoRepository;
+import br.edu.infnet.repository.PreferenciasNotificacaoRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +25,7 @@ import org.springframework.core.annotation.Order;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -38,7 +46,10 @@ public class DatabaseConfig {
             ClienteRepository clienteRepository,
             AtendenteSuporteRepository atendenteSuporteRepository,
             PedidoRepository pedidoRepository,
-            HistoricoStatusRepository historicoStatusRepository) {
+            HistoricoStatusRepository historicoStatusRepository,
+            PreferenciasNotificacaoRepository preferenciasNotificacaoRepository,
+            NotificacaoRepository notificacaoRepository,
+            DadosRastreamentoRepository dadosRastreamentoRepository) {
 
         return args -> {
             // Verificar se já existem dados para evitar duplicação
@@ -55,12 +66,26 @@ public class DatabaseConfig {
                 criarPedidosIniciais(clienteRepository, pedidoRepository, historicoStatusRepository);
             }
 
-            System.out.println("=== DADOS INICIAIS CARREGADOS - SPRINT 2 ===");
+            if (preferenciasNotificacaoRepository.count() == 0) {
+                criarPreferenciasNotificacaoIniciais(clienteRepository, preferenciasNotificacaoRepository);
+            }
+
+            if (notificacaoRepository.count() == 0) {
+                criarNotificacoesIniciais(clienteRepository, pedidoRepository, notificacaoRepository);
+            }
+
+            if (dadosRastreamentoRepository.count() == 0) {
+                criarDadosRastreamentoIniciais(pedidoRepository, dadosRastreamentoRepository);
+            }
+
             System.out.println("Clientes cadastrados: " + clienteRepository.count());
             System.out.println("Atendentes cadastrados: " + atendenteSuporteRepository.count());
             System.out.println("Pedidos cadastrados: " + pedidoRepository.count());
             System.out.println("Histórico de status: " + historicoStatusRepository.count());
-            System.out.println("=====================================");
+            System.out.println("Preferências de notificação: " + preferenciasNotificacaoRepository.count());
+            System.out.println("Notificações: " + notificacaoRepository.count());
+            System.out.println("Dados de rastreamento: " + dadosRastreamentoRepository.count());
+            System.out.println("===========================================");
         };
     }
 
@@ -352,5 +377,207 @@ public class DatabaseConfig {
         historico.setDataAtualizacao(dataAtualizacao);
 
         historicoStatusRepository.save(historico);
+    }
+
+    private void criarPreferenciasNotificacaoIniciais(ClienteRepository clienteRepository,
+                                                      PreferenciasNotificacaoRepository preferenciasNotificacaoRepository) {
+        List<Cliente> clientes = clienteRepository.findByAtivoTrue();
+
+        for (Cliente cliente : clientes) {
+            PreferenciasNotificacao preferencias = new PreferenciasNotificacao();
+            preferencias.setCliente(cliente);
+
+            switch (cliente.getNome()) {
+                case "João Silva":
+                    preferencias.setEmailAtivo(true);
+                    preferencias.setSmsAtivo(true);
+                    preferencias.setPushAtivo(true);
+                    preferencias.setHorarioInicio(LocalTime.of(8, 0));
+                    preferencias.setHorarioFim(LocalTime.of(22, 0));
+                    break;
+                    
+                case "Maria Santos":
+                    preferencias.setEmailAtivo(true);
+                    preferencias.setSmsAtivo(false);
+                    preferencias.setPushAtivo(false);
+                    preferencias.setHorarioInicio(LocalTime.of(9, 0));
+                    preferencias.setHorarioFim(LocalTime.of(18, 0));
+                    break;
+                    
+                case "Pedro Oliveira":
+                    preferencias.setEmailAtivo(false);
+                    preferencias.setSmsAtivo(true);
+                    preferencias.setPushAtivo(true);
+                    preferencias.setHorarioInicio(LocalTime.of(7, 0));
+                    preferencias.setHorarioFim(LocalTime.of(20, 0));
+                    break;
+                    
+                case "Ana Costa":
+                    preferencias.setEmailAtivo(true);
+                    preferencias.setSmsAtivo(false);
+                    preferencias.setPushAtivo(true);
+                    preferencias.setHorarioInicio(LocalTime.of(10, 0));
+                    preferencias.setHorarioFim(LocalTime.of(21, 0));
+                    break;
+                    
+                default:
+                    preferencias.setEmailAtivo(true);
+                    preferencias.setSmsAtivo(false);
+                    preferencias.setPushAtivo(true);
+                    preferencias.setHorarioInicio(LocalTime.of(8, 0));
+                    preferencias.setHorarioFim(LocalTime.of(22, 0));
+                    break;
+            }
+            
+            preferenciasNotificacaoRepository.save(preferencias);
+        }
+    }
+
+    private void criarNotificacoesIniciais(ClienteRepository clienteRepository,
+                                          PedidoRepository pedidoRepository,
+                                          NotificacaoRepository notificacaoRepository) {
+        List<Cliente> clientes = clienteRepository.findByAtivoTrue();
+        List<Pedido> pedidos = pedidoRepository.findAll();
+
+        if (pedidos.isEmpty()) {
+            return;
+        }
+
+        Cliente joao = clientes.stream().filter(c -> c.getNome().equals("João Silva")).findFirst().orElse(null);
+        if (joao != null) {
+            Pedido pedidoJoao = pedidos.stream().filter(p -> p.getCliente().getId().equals(joao.getId())).findFirst().orElse(null);
+            if (pedidoJoao != null) {
+                criarNotificacao(pedidoJoao, joao, TipoNotificacao.EMAIL,
+                        "Pedido Confirmado",
+                        "Seu pedido " + pedidoJoao.getNumeroPedido() + " foi confirmado com sucesso!",
+                        LocalDateTime.now().minusDays(2), true, notificacaoRepository);
+
+                criarNotificacao(pedidoJoao, joao, TipoNotificacao.SMS,
+                        "Pedido Enviado",
+                        "Seu pedido está a caminho! Acompanhe pelo código de rastreamento.",
+                        LocalDateTime.now().minusDays(1), true, notificacaoRepository);
+
+                criarNotificacao(pedidoJoao, joao, TipoNotificacao.PUSH,
+                        "Novo Desconto Disponível",
+                        "Aproveite 15% de desconto em sua próxima compra!",
+                        LocalDateTime.now().minusHours(3), false, notificacaoRepository);
+            }
+        }
+
+        Cliente maria = clientes.stream().filter(c -> c.getNome().equals("Maria Santos")).findFirst().orElse(null);
+        if (maria != null) {
+            Pedido pedidoMaria = pedidos.stream().filter(p -> p.getCliente().getId().equals(maria.getId())).findFirst().orElse(null);
+            if (pedidoMaria != null) {
+                criarNotificacao(pedidoMaria, maria, TipoNotificacao.EMAIL,
+                        "Pedido em Trânsito",
+                        "Seu pedido " + pedidoMaria.getNumeroPedido() + " está em trânsito para entrega.",
+                        LocalDateTime.now().minusHours(6), false, notificacaoRepository);
+
+                criarNotificacao(pedidoMaria, maria, TipoNotificacao.EMAIL,
+                        "Atualização de Status",
+                        "Status do seu pedido foi atualizado. Verifique os detalhes.",
+                        LocalDateTime.now().minusHours(12), true, notificacaoRepository);
+            }
+        }
+
+        Cliente pedro = clientes.stream().filter(c -> c.getNome().equals("Pedro Oliveira")).findFirst().orElse(null);
+        if (pedro != null) {
+            Pedido pedidoPedro = pedidos.stream().filter(p -> p.getCliente().getId().equals(pedro.getId())).findFirst().orElse(null);
+            if (pedidoPedro != null) {
+                criarNotificacao(pedidoPedro, pedro, TipoNotificacao.PUSH,
+                        "Preparando Pedido",
+                        "Seu pedido " + pedidoPedro.getNumeroPedido() + " está sendo preparado.",
+                        LocalDateTime.now().minusHours(8), true, notificacaoRepository);
+
+                criarNotificacao(pedidoPedro, pedro, TipoNotificacao.SMS,
+                        "Lembrete de Acompanhamento",
+                        "Não se esqueça de acompanhar seu pedido pelo nosso sistema!",
+                        LocalDateTime.now().minusMinutes(30), false, notificacaoRepository);
+            }
+        }
+
+        Cliente ana = clientes.stream().filter(c -> c.getNome().equals("Ana Costa")).findFirst().orElse(null);
+        if (ana != null) {
+            Pedido pedidoAna = pedidos.stream().filter(p -> p.getCliente().getId().equals(ana.getId())).findFirst().orElse(null);
+            if (pedidoAna != null) {
+                criarNotificacao(pedidoAna, ana, TipoNotificacao.EMAIL,
+                        "Bem-vinda!",
+                        "Obrigado por realizar seu primeiro pedido conosco, " + ana.getNome() + "!",
+                        LocalDateTime.now().minusDays(1), true, notificacaoRepository);
+
+                criarNotificacao(pedidoAna, ana, TipoNotificacao.PUSH,
+                        "Pedido Confirmado",
+                        "Seu pedido " + pedidoAna.getNumeroPedido() + " foi confirmado e será processado em breve.",
+                        LocalDateTime.now().minusHours(2), false, notificacaoRepository);
+            }
+        }
+    }
+
+    private void criarNotificacao(Pedido pedido, Cliente cliente, TipoNotificacao tipo,
+                                 String titulo, String mensagem, LocalDateTime dataEnvio,
+                                 boolean lida, NotificacaoRepository notificacaoRepository) {
+        Notificacao notificacao = new Notificacao();
+        notificacao.setPedido(pedido);
+        notificacao.setCliente(cliente);
+        notificacao.setTipo(tipo);
+        notificacao.setTitulo(titulo);
+        notificacao.setMensagem(mensagem);
+        notificacao.setDataEnvio(dataEnvio);
+        notificacao.setLida(lida);
+        
+        notificacaoRepository.save(notificacao);
+    }
+
+    private void criarDadosRastreamentoIniciais(PedidoRepository pedidoRepository,
+                                              DadosRastreamentoRepository dadosRastreamentoRepository) {
+        List<Pedido> pedidos = pedidoRepository.findAll();
+
+        for (Pedido pedido : pedidos) {
+            if (pedido.getStatus() == StatusPedido.ENVIADO || 
+                pedido.getStatus() == StatusPedido.EM_TRANSITO || 
+                pedido.getStatus() == StatusPedido.SAIU_PARA_ENTREGA ||
+                pedido.getStatus() == StatusPedido.ENTREGUE) {
+                
+                DadosRastreamento dados = new DadosRastreamento();
+                dados.setPedido(pedido);
+
+                String codigo = "BR" + pedido.getNumeroPedido().substring(3) + "SP";
+                dados.setCodigoRastreamento(codigo);
+
+                switch ((int)(pedido.getId() % 3)) {
+                    case 0:
+                        dados.setTransportadora("Correios");
+                        break;
+                    case 1:
+                        dados.setTransportadora("Loggi");
+                        break;
+                    case 2:
+                        dados.setTransportadora("Jadlog");
+                        break;
+                }
+
+                switch (pedido.getStatus()) {
+                    case ENVIADO:
+                        dados.setLocalizacaoAtual("Centro de Distribuição - São Paulo");
+                        break;
+                    case EM_TRANSITO:
+                        dados.setLocalizacaoAtual("Em trânsito para o destino");
+                        break;
+                    case SAIU_PARA_ENTREGA:
+                        dados.setLocalizacaoAtual("Veículo de entrega - Rota local");
+                        break;
+                    case ENTREGUE:
+                        dados.setLocalizacaoAtual("Entregue no destino");
+                        break;
+                    default:
+                        dados.setLocalizacaoAtual("Centro de Distribuição");
+                        break;
+                }
+
+                dados.setUltimaAtualizacao(LocalDateTime.now().minusHours(pedido.getId() % 24));
+                
+                dadosRastreamentoRepository.save(dados);
+            }
+        }
     }
 }
