@@ -9,21 +9,27 @@ import br.edu.infnet.model.dto.PreferenciasNotificacaoDto;
 import br.edu.infnet.model.entity.AtendenteSuporte;
 import br.edu.infnet.model.enums.StatusPedido;
 import br.edu.infnet.model.enums.TipoNotificacao;
+import br.edu.infnet.model.dto.AvaliacaoDto;
+import br.edu.infnet.model.dto.ResponseDto;
+import br.edu.infnet.model.dto.SolicitacaoSuporteDto;
 import br.edu.infnet.service.AuthService;
+import br.edu.infnet.controller.AvaliacaoController;
+import br.edu.infnet.controller.SolicitacaoSuporteController;
+import br.edu.infnet.service.AvaliacaoService;
 import br.edu.infnet.service.ClienteService;
+import br.edu.infnet.service.CompartilhamentoService;
 import br.edu.infnet.service.NotificacaoService;
 import br.edu.infnet.service.PedidoService;
 import br.edu.infnet.service.PreferenciasNotificacaoService;
+import br.edu.infnet.service.SolicitacaoSuporteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.InputMismatchException;
-import java.util.List;
-import java.util.Optional;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * Interface de linha de comando para o Sistema de Acompanhamento de Pedidos
@@ -46,6 +52,21 @@ public class SistemaCli implements CommandLineRunner {
 
     @Autowired
     private PreferenciasNotificacaoService preferenciasNotificacaoService;
+    
+    @Autowired
+    private SolicitacaoSuporteService solicitacaoSuporteService;
+    
+    @Autowired
+    private AvaliacaoService avaliacaoService;
+    
+    @Autowired
+    private CompartilhamentoService compartilhamentoService;
+    
+    @Autowired
+    private AvaliacaoController avaliacaoController;
+    
+    @Autowired
+    private SolicitacaoSuporteController solicitacaoSuporteController;
 
     private Scanner scanner;
     private ClienteDto clienteLogado;
@@ -162,7 +183,10 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println("5. Buscar Pedido");
         System.out.println("6. Acompanhar Pedido");
         System.out.println("7. Gerenciar Notificações");
-        System.out.println("8. Suporte (Pendente)");
+        System.out.println("8. Suporte");
+        System.out.println("9. Avaliar Pedido Entregue");
+        System.out.println("10. Ver Minhas Avaliações");
+        System.out.println("11. Compartilhar Status do Pedido");
         System.out.println("0. Logout");
         System.out.println();
         System.out.print("Escolha uma opção: ");
@@ -194,8 +218,16 @@ public class SistemaCli implements CommandLineRunner {
                     gerenciarNotificacoesCliente();
                     break;
                 case 8:
-                    System.out.println("Funcionalidade será implementada nas próximas sprints!");
-                    pausa();
+                    gerenciarSuporteCliente();
+                    break;
+                case 9:
+                    avaliarPedidoEntregue();
+                    break;
+                case 10:
+                    verMinhasAvaliacoes();
+                    break;
+                case 11:
+                    compartilharStatusPedido();
                     break;
                 case 0:
                     realizarLogout();
@@ -227,7 +259,8 @@ public class SistemaCli implements CommandLineRunner {
         System.out.println("5. Atualizar Status de Pedido");
         System.out.println("6. Estatísticas de Pedidos");
         System.out.println("7. Gerenciar Notificações");
-        System.out.println("8. Suporte (Pendente Sprint 4)");
+        System.out.println("8. Gerenciar Suporte");
+        System.out.println("9. Gerenciar Avaliações");
         System.out.println("0. Logout");
         System.out.println();
         System.out.print("Escolha uma opção: ");
@@ -259,8 +292,10 @@ public class SistemaCli implements CommandLineRunner {
                     gerenciarNotificacoesAtendente();
                     break;
                 case 8:
-                    System.out.println("Funcionalidade será implementada na Sprint 4!");
-                    pausa();
+                    gerenciarSuporteAtendente();
+                    break;
+                case 9:
+                    gerenciarAvaliacoesAtendente();
                     break;
                 case 0:
                     realizarLogout();
@@ -1951,6 +1986,687 @@ public class SistemaCli implements CommandLineRunner {
             System.out.println("Erro ao atualizar notificações: " + e.getMessage());
         }
 
+        pausa();
+    }
+
+    private void gerenciarSuporteCliente() {
+        limparTela();
+        System.out.println("=== SUPORTE - ÁREA DO CLIENTE ===");
+        System.out.println();
+        System.out.println("1. Criar Nova Solicitação de Suporte");
+        System.out.println("2. Minhas Solicitações de Suporte");
+        System.out.println("3. Acompanhar Solicitação");
+        System.out.println("0. Voltar");
+        System.out.println();
+        System.out.print("Escolha uma opção: ");
+        
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (opcao) {
+                case 1:
+                    criarSolicitacaoSuporte();
+                    break;
+                case 2:
+                    listarMinhasSolicitacoes();
+                    break;
+                case 3:
+                    acompanharSolicitacao();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida! Digite apenas números.");
+            scanner.nextLine();
+            pausa();
+        }
+    }
+    
+    private void criarSolicitacaoSuporte() {
+        limparTela();
+        System.out.println("=== CRIAR SOLICITAÇÃO DE SUPORTE ===");
+        System.out.println();
+        
+        System.out.println("Tipo de problema:");
+        System.out.println("1. Atraso na Entrega");
+        System.out.println("2. Produto Danificado");
+        System.out.println("3. Produto Não Recebido");
+        System.out.println("4. Dúvida sobre Pedido");
+        System.out.println("5. Outro");
+        System.out.print("Escolha o tipo: ");
+        
+        try {
+            int tipoOpcao = scanner.nextInt();
+            scanner.nextLine();
+            
+            String tipoProblema;
+            switch (tipoOpcao) {
+                case 1:
+                    tipoProblema = "Atraso na Entrega";
+                    break;
+                case 2:
+                    tipoProblema = "Produto Danificado";
+                    break;
+                case 3:
+                    tipoProblema = "Produto Não Recebido";
+                    break;
+                case 4:
+                    tipoProblema = "Dúvida sobre Pedido";
+                    break;
+                case 5:
+                    System.out.print("Digite o tipo de problema: ");
+                    tipoProblema = scanner.nextLine().trim();
+                    break;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+                    return;
+            }
+            
+            System.out.print("Descreva o problema detalhadamente: ");
+            String descricao = scanner.nextLine().trim();
+            
+            if (descricao.isEmpty()) {
+                System.out.println("A descrição é obrigatória!");
+                pausa();
+                return;
+            }
+            
+            SolicitacaoSuporteDto dto = new SolicitacaoSuporteDto();
+            dto.setClienteId(clienteLogado.getId());
+            dto.setTipoProblema(tipoProblema);
+            dto.setDescricao(descricao);
+            
+            SolicitacaoSuporteDto solicitacao = solicitacaoSuporteService.criarSolicitacao(dto);
+            
+            System.out.println();
+            System.out.println("Solicitação criada com sucesso!");
+            System.out.println("Protocolo: " + solicitacao.getProtocolo());
+            System.out.println("Status: " + solicitacao.getStatus().getDescricao());
+            System.out.println();
+            System.out.println("Guarde este protocolo para acompanhamento.");
+            
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida!");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao criar solicitação: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void listarMinhasSolicitacoes() {
+        limparTela();
+        System.out.println("=== MINHAS SOLICITAÇÕES DE SUPORTE ===");
+        System.out.println();
+        
+        try {
+            List<SolicitacaoSuporteDto> solicitacoes = solicitacaoSuporteService.listarPorCliente(clienteLogado.getId());
+            
+            if (solicitacoes.isEmpty()) {
+                System.out.println("Você não possui solicitações de suporte.");
+            } else {
+                System.out.printf("%-15s %-20s %-15s %-20s%n",
+                        "Protocolo", "Tipo", "Status", "Data Abertura");
+                System.out.println("─".repeat(75));
+                
+                for (SolicitacaoSuporteDto s : solicitacoes) {
+                    System.out.printf("%-15s %-20s %-15s %-20s%n",
+                            s.getProtocolo(),
+                            s.getTipoProblema().length() > 20 ? s.getTipoProblema().substring(0, 17) + "..." : s.getTipoProblema(),
+                            s.getStatus().getDescricao(),
+                            s.getDataAbertura().toString().substring(0, 19)
+                    );
+                }
+                
+                System.out.println("─".repeat(75));
+                System.out.println("Total: " + solicitacoes.size());
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar solicitações: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void acompanharSolicitacao() {
+        System.out.print("Digite o protocolo da solicitação: ");
+        String protocolo = scanner.nextLine().trim();
+        
+        try {
+            Optional<SolicitacaoSuporteDto> solicitacaoOpt = solicitacaoSuporteService.buscarPorProtocolo(protocolo);
+            
+            if (solicitacaoOpt.isPresent()) {
+                SolicitacaoSuporteDto s = solicitacaoOpt.get();
+                
+                System.out.println();
+                System.out.println("=== DETALHES DA SOLICITAÇÃO ===");
+                System.out.println();
+                System.out.printf("%-20s: %s%n", "Protocolo", s.getProtocolo());
+                System.out.printf("%-20s: %s%n", "Tipo", s.getTipoProblema());
+                System.out.printf("%-20s: %s%n", "Status", s.getStatus().getDescricao());
+                System.out.printf("%-20s: %s%n", "Data Abertura", s.getDataAbertura());
+                
+                if (s.getDataFechamento() != null) {
+                    System.out.printf("%-20s: %s%n", "Data Fechamento", s.getDataFechamento());
+                }
+                
+                if (s.getNomeAtendente() != null) {
+                    System.out.printf("%-20s: %s%n", "Atendente", s.getNomeAtendente());
+                }
+                
+                System.out.println();
+                System.out.println("Descrição:");
+                System.out.println(s.getDescricao());
+            } else {
+                System.out.println("Solicitação não encontrada com protocolo: " + protocolo);
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar solicitação: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void avaliarPedidoEntregue() {
+        limparTela();
+        System.out.println("=== AVALIAR PEDIDO ENTREGUE ===");
+        System.out.println();
+        
+        System.out.print("Digite o ID do pedido: ");
+        try {
+            Long pedidoId = scanner.nextLong();
+            scanner.nextLine();
+            
+            // Verificar se o pedido já foi avaliado
+            Optional<AvaliacaoDto> avaliacaoExistente = avaliacaoService.buscarPorPedido(pedidoId);
+            if (avaliacaoExistente.isPresent()) {
+                System.out.println();
+                System.out.println("Este pedido já foi avaliado!");
+                System.out.println("Nota Acompanhamento: " + avaliacaoExistente.get().getNotaAcompanhamento());
+                System.out.println("Nota Entrega: " + avaliacaoExistente.get().getNotaEntrega());
+                if (avaliacaoExistente.get().getComentario() != null) {
+                    System.out.println("Comentário: " + avaliacaoExistente.get().getComentario());
+                }
+                pausa();
+                return;
+            }
+            
+            System.out.print("Nota para o acompanhamento do pedido (1-5): ");
+            Integer notaAcompanhamento = scanner.nextInt();
+            
+            System.out.print("Nota para a entrega (1-5): ");
+            Integer notaEntrega = scanner.nextInt();
+            scanner.nextLine();
+            
+            System.out.print("Comentário (opcional, Enter para pular): ");
+            String comentario = scanner.nextLine().trim();
+            
+            AvaliacaoDto dto = new AvaliacaoDto();
+            dto.setPedidoId(pedidoId);
+            dto.setClienteId(clienteLogado.getId());
+            dto.setNotaAcompanhamento(notaAcompanhamento);
+            dto.setNotaEntrega(notaEntrega);
+            if (!comentario.isEmpty()) {
+                dto.setComentario(comentario);
+            }
+            
+            AvaliacaoDto avaliacao = avaliacaoService.criarAvaliacao(dto);
+            
+            System.out.println();
+            System.out.println("Avaliação registrada com sucesso!");
+            System.out.println("Média das notas: " + avaliacao.getMediaNotas());
+            System.out.println("Obrigado pelo seu feedback!");
+            
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida!");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao criar avaliação: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void verMinhasAvaliacoes() {
+        limparTela();
+        System.out.println("=== MINHAS AVALIAÇÕES ===");
+        System.out.println();
+        
+        try {
+            List<AvaliacaoDto> avaliacoes = avaliacaoService.listarPorCliente(clienteLogado.getId());
+            
+            if (avaliacoes.isEmpty()) {
+                System.out.println("Você ainda não fez nenhuma avaliação.");
+            } else {
+                System.out.printf("%-10s %-15s %-10s %-10s %-10s %-20s%n",
+                        "ID", "Pedido", "Acomp.", "Entrega", "Média", "Data");
+                System.out.println("─".repeat(80));
+                
+                for (AvaliacaoDto a : avaliacoes) {
+                    System.out.printf("%-10d %-15s %-10d %-10d %-10.1f %-20s%n",
+                            a.getId(),
+                            a.getNumeroPedido() != null ? a.getNumeroPedido() : "N/A",
+                            a.getNotaAcompanhamento(),
+                            a.getNotaEntrega(),
+                            a.getMediaNotas(),
+                            a.getDataAvaliacao().toString().substring(0, 19)
+                    );
+                    
+                    if (a.getComentario() != null && !a.getComentario().isEmpty()) {
+                        System.out.println("  Comentário: " + a.getComentario());
+                    }
+                    System.out.println();
+                }
+                
+                System.out.println("─".repeat(80));
+                System.out.println("Total de avaliações: " + avaliacoes.size());
+                
+                // Mostrar estatísticas
+                System.out.println();
+                System.out.println("=== ESTATÍSTICAS GERAIS ===");
+                Map<String, Object> stats = avaliacaoService.obterEstatisticas();
+                System.out.println("Média geral de acompanhamento: " + String.format("%.2f", stats.get("mediaNotaAcompanhamento")));
+                System.out.println("Média geral de entrega: " + String.format("%.2f", stats.get("mediaNotaEntrega")));
+                System.out.println("Média geral: " + String.format("%.2f", stats.get("mediaGeral")));
+                System.out.println("Total de avaliações no sistema: " + stats.get("totalAvaliacoes"));
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar avaliações: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void compartilharStatusPedido() {
+        limparTela();
+        System.out.println("=== COMPARTILHAR STATUS DO PEDIDO ===");
+        System.out.println();
+        
+        System.out.print("Digite o ID do pedido: ");
+        try {
+            Long pedidoId = scanner.nextLong();
+            scanner.nextLine();
+            
+            String link = compartilhamentoService.gerarLinkCompartilhamento(pedidoId, clienteLogado.getId());
+            
+            System.out.println();
+            System.out.println("Link de compartilhamento gerado com sucesso!");
+            System.out.println();
+            System.out.println("Link: " + link);
+            System.out.println();
+            System.out.println("Este link é válido por 24 horas.");
+            System.out.println("Compartilhe com quem desejar acompanhar seu pedido.");
+            
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida!");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao gerar link: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void gerenciarSuporteAtendente() {
+        limparTela();
+        System.out.println("=== GERENCIAR SUPORTE - ATENDENTE ===");
+        System.out.println();
+        System.out.println("1. Listar Solicitações Abertas");
+        System.out.println("2. Listar Todas as Solicitações");
+        System.out.println("3. Buscar Solicitação por Protocolo");
+        System.out.println("4. Atualizar Status de Solicitação");
+        System.out.println("5. Estatísticas de Suporte");
+        System.out.println("0. Voltar");
+        System.out.println();
+        System.out.print("Escolha uma opção: ");
+        
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (opcao) {
+                case 1:
+                    listarSolicitacoesAbertas();
+                    break;
+                case 2:
+                    listarTodasSolicitacoes();
+                    break;
+                case 3:
+                    buscarSolicitacaoPorProtocolo();
+                    break;
+                case 4:
+                    atualizarStatusSolicitacao();
+                    break;
+                case 5:
+                    exibirEstatisticasSuporte();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida!");
+            scanner.nextLine();
+            pausa();
+        }
+    }
+    
+    private void listarSolicitacoesAbertas() {
+        limparTela();
+        System.out.println("=== SOLICITAÇÕES ABERTAS ===");
+        System.out.println();
+        
+        try {
+            List<SolicitacaoSuporteDto> solicitacoes = solicitacaoSuporteService.listarPorStatus(br.edu.infnet.model.enums.StatusSuporte.ABERTO);
+            
+            if (solicitacoes.isEmpty()) {
+                System.out.println("Não há solicitações abertas.");
+            } else {
+                exibirListaSolicitacoes(solicitacoes);
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar solicitações: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void listarTodasSolicitacoes() {
+        limparTela();
+        System.out.println("=== TODAS AS SOLICITAÇÕES ===");
+        System.out.println();
+        
+        try {
+            List<SolicitacaoSuporteDto> solicitacoes = solicitacaoSuporteService.listarTodas();
+            
+            if (solicitacoes.isEmpty()) {
+                System.out.println("Não há solicitações no sistema.");
+            } else {
+                exibirListaSolicitacoes(solicitacoes);
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar solicitações: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void exibirListaSolicitacoes(List<SolicitacaoSuporteDto> solicitacoes) {
+        System.out.printf("%-5s %-15s %-20s %-20s %-15s %-20s%n",
+                "ID", "Protocolo", "Cliente", "Tipo", "Status", "Data Abertura");
+        System.out.println("─".repeat(100));
+        
+        for (SolicitacaoSuporteDto s : solicitacoes) {
+            System.out.printf("%-5d %-15s %-20s %-20s %-15s %-20s%n",
+                    s.getId(),
+                    s.getProtocolo(),
+                    s.getNomeCliente() != null ? 
+                        (s.getNomeCliente().length() > 20 ? s.getNomeCliente().substring(0, 17) + "..." : s.getNomeCliente()) : "N/A",
+                    s.getTipoProblema().length() > 20 ? s.getTipoProblema().substring(0, 17) + "..." : s.getTipoProblema(),
+                    s.getStatus().getDescricao(),
+                    s.getDataAbertura().toString().substring(0, 19)
+            );
+        }
+        
+        System.out.println("─".repeat(100));
+        System.out.println("Total: " + solicitacoes.size());
+    }
+    
+    private void buscarSolicitacaoPorProtocolo() {
+        System.out.print("Digite o protocolo: ");
+        String protocolo = scanner.nextLine().trim();
+        
+        try {
+            Optional<SolicitacaoSuporteDto> solicitacaoOpt = solicitacaoSuporteService.buscarPorProtocolo(protocolo);
+            
+            if (solicitacaoOpt.isPresent()) {
+                SolicitacaoSuporteDto s = solicitacaoOpt.get();
+                exibirDetalhesSolicitacao(s);
+            } else {
+                System.out.println("Solicitação não encontrada com protocolo: " + protocolo);
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar solicitação: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void exibirDetalhesSolicitacao(SolicitacaoSuporteDto s) {
+        System.out.println();
+        System.out.println("=== DETALHES DA SOLICITAÇÃO ===");
+        System.out.println();
+        System.out.printf("%-20s: %d%n", "ID", s.getId());
+        System.out.printf("%-20s: %s%n", "Protocolo", s.getProtocolo());
+        System.out.printf("%-20s: %s%n", "Cliente", s.getNomeCliente() != null ? s.getNomeCliente() : "N/A");
+        System.out.printf("%-20s: %s%n", "Tipo", s.getTipoProblema());
+        System.out.printf("%-20s: %s%n", "Status", s.getStatus().getDescricao());
+        System.out.printf("%-20s: %s%n", "Data Abertura", s.getDataAbertura());
+        
+        if (s.getDataFechamento() != null) {
+            System.out.printf("%-20s: %s%n", "Data Fechamento", s.getDataFechamento());
+        }
+        
+        if (s.getNomeAtendente() != null) {
+            System.out.printf("%-20s: %s%n", "Atendente", s.getNomeAtendente());
+        }
+        
+        System.out.println();
+        System.out.println("Descrição:");
+        System.out.println(s.getDescricao());
+    }
+    
+    private void atualizarStatusSolicitacao() {
+        System.out.print("Digite o ID da solicitação: ");
+        try {
+            Long id = scanner.nextLong();
+            scanner.nextLine();
+            
+            System.out.println("Novo status:");
+            System.out.println("1. EM_ANDAMENTO");
+            System.out.println("2. RESOLVIDO");
+            System.out.println("3. FECHADO");
+            System.out.print("Escolha: ");
+            
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+            
+            br.edu.infnet.model.enums.StatusSuporte novoStatus;
+            switch (opcao) {
+                case 1:
+                    novoStatus = br.edu.infnet.model.enums.StatusSuporte.EM_ANDAMENTO;
+                    break;
+                case 2:
+                    novoStatus = br.edu.infnet.model.enums.StatusSuporte.RESOLVIDO;
+                    break;
+                case 3:
+                    novoStatus = br.edu.infnet.model.enums.StatusSuporte.FECHADO;
+                    break;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+                    return;
+            }
+            
+            SolicitacaoSuporteDto solicitacao = solicitacaoSuporteService.atualizarStatus(id, novoStatus);
+
+            System.out.println();
+            System.out.println("Status atualizado com sucesso!");
+            System.out.println("Protocolo: " + solicitacao.getProtocolo());
+            System.out.println("Novo status: " + solicitacao.getStatus().getDescricao());
+            
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida!");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao atualizar status: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void exibirEstatisticasSuporte() {
+        limparTela();
+        System.out.println("=== ESTATÍSTICAS DE SUPORTE ===");
+        System.out.println();
+        
+        try {
+            System.out.println("Solicitações por Status:");
+            System.out.println("─".repeat(40));
+
+            for (br.edu.infnet.model.enums.StatusSuporte status : br.edu.infnet.model.enums.StatusSuporte.values()) {
+                long count = solicitacaoSuporteService.contarPorStatus(status);
+                System.out.printf("%-20s: %d%n", status.getDescricao(), count);
+            }
+
+            System.out.println("─".repeat(40));
+            System.out.println("Total: " + solicitacaoSuporteService.listarTodas().size());
+        } catch (Exception e) {
+            System.out.println("Erro ao obter estatísticas: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void gerenciarAvaliacoesAtendente() {
+        limparTela();
+        System.out.println("=== GERENCIAR AVALIAÇÕES - ATENDENTE ===");
+        System.out.println();
+        System.out.println("1. Listar Todas as Avaliações");
+        System.out.println("2. Buscar Avaliações por Cliente");
+        System.out.println("3. Estatísticas de Avaliação");
+        System.out.println("0. Voltar");
+        System.out.println();
+        System.out.print("Escolha uma opção: ");
+        
+        try {
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+            
+            switch (opcao) {
+                case 1:
+                    listarTodasAvaliacoes();
+                    break;
+                case 2:
+                    buscarAvaliacoesPorCliente();
+                    break;
+                case 3:
+                    exibirEstatisticasAvaliacao();
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Opção inválida!");
+                    pausa();
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida!");
+            scanner.nextLine();
+            pausa();
+        }
+    }
+    
+    private void listarTodasAvaliacoes() {
+        limparTela();
+        System.out.println("=== TODAS AS AVALIAÇÕES ===");
+        System.out.println();
+        
+        try {
+            List<AvaliacaoDto> avaliacoes = avaliacaoService.listarTodas();
+            
+            if (avaliacoes.isEmpty()) {
+                System.out.println("Não há avaliações no sistema.");
+            } else {
+                System.out.printf("%-5s %-15s %-20s %-10s %-10s %-10s %-20s%n",
+                        "ID", "Pedido", "Cliente", "N. Acomp.", "N. Entrega", "Média", "Data");
+                System.out.println("─".repeat(95));
+                
+                for (AvaliacaoDto a : avaliacoes) {
+                    System.out.printf("%-5d %-15s %-20s %-10d %-10d %-10.1f %-20s%n",
+                            a.getId(),
+                            a.getNumeroPedido() != null ? a.getNumeroPedido() : "N/A",
+                            a.getNomeCliente() != null ?
+                                (a.getNomeCliente().length() > 20 ? a.getNomeCliente().substring(0, 17) + "..." : a.getNomeCliente()) : "N/A",
+                            a.getNotaAcompanhamento(),
+                            a.getNotaEntrega(),
+                            a.getMediaNotas(),
+                            a.getDataAvaliacao().toString().substring(0, 19)
+                    );
+                }
+                
+                System.out.println("─".repeat(95));
+                System.out.println("Total: " + avaliacoes.size());
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao listar avaliações: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void buscarAvaliacoesPorCliente() {
+        System.out.print("Digite o ID do cliente: ");
+        try {
+            Long clienteId = scanner.nextLong();
+            scanner.nextLine();
+            
+            List<AvaliacaoDto> avaliacoes = avaliacaoService.listarPorCliente(clienteId);
+            
+            System.out.println();
+            if (avaliacoes.isEmpty()) {
+                System.out.println("Cliente não possui avaliações.");
+            } else {
+                System.out.println("Avaliações encontradas: " + avaliacoes.size());
+                System.out.println();
+                
+                for (AvaliacaoDto a : avaliacoes) {
+                    System.out.printf("Pedido: %s | Notas: %d/%d | Média: %.1f | Data: %s%n",
+                            a.getNumeroPedido() != null ? a.getNumeroPedido() : "N/A",
+                            a.getNotaAcompanhamento(),
+                            a.getNotaEntrega(),
+                            a.getMediaNotas(),
+                            a.getDataAvaliacao().toString().substring(0, 10)
+                    );
+                    if (a.getComentario() != null && !a.getComentario().isEmpty()) {
+                        System.out.println("  Comentário: " + a.getComentario());
+                    }
+                    System.out.println();
+                }
+            }
+        } catch (InputMismatchException e) {
+            System.out.println("Entrada inválida!");
+            scanner.nextLine();
+        } catch (Exception e) {
+            System.out.println("Erro ao buscar avaliações: " + e.getMessage());
+        }
+        
+        pausa();
+    }
+    
+    private void exibirEstatisticasAvaliacao() {
+        limparTela();
+        System.out.println("=== ESTATÍSTICAS DE AVALIAÇÃO ===");
+        System.out.println();
+        
+        try {
+            System.out.printf("%-35s: %.2f%n", "Média Geral de Acompanhamento", avaliacaoService.getMediaNotaAcompanhamento());
+            System.out.printf("%-35s: %.2f%n", "Média Geral de Entrega", avaliacaoService.getMediaNotaEntrega());
+            System.out.printf("%-35s: %.2f%n", "Média Geral (Todas as Notas)", avaliacaoService.getMediaGeral());
+            System.out.printf("%-35s: %d%n", "Total de Avaliações", avaliacaoService.listarTodas().size());
+            System.out.printf("%-35s: %d%n", "Avaliações com Comentário", avaliacaoService.contarAvaliacoesComComentario());
+        } catch (Exception e) {
+            System.out.println("Erro ao obter estatísticas: " + e.getMessage());
+        }
+        
         pausa();
     }
 }
