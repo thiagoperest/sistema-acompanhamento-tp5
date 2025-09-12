@@ -12,7 +12,9 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -68,9 +70,10 @@ public class AvaliacaoService {
     /**
      * Buscar avaliação por ID
      */
-    public Optional<AvaliacaoDto> buscarPorId(Long id) {
+    public AvaliacaoDto buscarPorId(Long id) {
         return avaliacaoRepository.findById(id)
-                .map(AvaliacaoDto::new);
+                .map(AvaliacaoDto::new)
+                .orElseThrow(() -> new RuntimeException("Avaliação não encontrada com ID: " + id));
     }
 
     /**
@@ -130,5 +133,50 @@ public class AvaliacaoService {
      */
     public Long contarAvaliacoesComComentario() {
         return avaliacaoRepository.countAvaliacoesComComentario();
+    }
+
+    /**
+     * Verificar se pedido já foi avaliado
+     */
+    public boolean pedidoJaAvaliado(Long pedidoId) {
+        return avaliacaoRepository.existsByPedidoId(pedidoId);
+    }
+
+    /**
+     * Listar avaliações com nota mínima
+     */
+    public List<AvaliacaoDto> listarPorNotaMinima(Double notaMinima) {
+        return avaliacaoRepository.findAll()
+                .stream()
+                .filter(avaliacao -> avaliacao.getMediaNotas() >= notaMinima)
+                .map(AvaliacaoDto::new)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Obter estatísticas de avaliações
+     */
+    public Map<String, Object> obterEstatisticas() {
+        Map<String, Object> estatisticas = new HashMap<>();
+
+        estatisticas.put("totalAvaliacoes", avaliacaoRepository.count());
+        estatisticas.put("mediaNotaAcompanhamento", getMediaNotaAcompanhamento());
+        estatisticas.put("mediaNotaEntrega", getMediaNotaEntrega());
+        estatisticas.put("mediaGeral", getMediaGeral());
+        estatisticas.put("avaliacoesComComentario", contarAvaliacoesComComentario());
+
+        // Distribuição de notas
+        Map<Integer, Long> distribuicaoNotas = new HashMap<>();
+        for (int i = 1; i <= 5; i++) {
+            final int nota = i;
+            long count = avaliacaoRepository.findAll()
+                    .stream()
+                    .filter(av -> av.getNotaAcompanhamento() == nota || av.getNotaEntrega() == nota)
+                    .count();
+            distribuicaoNotas.put(nota, count);
+        }
+        estatisticas.put("distribuicaoNotas", distribuicaoNotas);
+
+        return estatisticas;
     }
 }
